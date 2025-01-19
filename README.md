@@ -157,6 +157,7 @@ npm run test:components
 - [Supabase Setup](./SUPABASE.md)
 - [API Documentation](./API.md)
 - [Troubleshooting](./TROUBLESHOOTING.md)
+- [Version Rollback](./ROLLBACK.md)
 
 ## License 📄
 
