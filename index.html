@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <title>Clapp Code</title>
+    <style>
+      :root {
+        --color-neon-pink: #ff2d55;
+        --color-neon-blue: #2e3cff;
+        --color-neon-purple: #b829ea;
+        --color-neon-cyan: #01fffe;
+        --color-cyber-dark: #0b1021;
+        --color-cyber-darker: #060810;
+        --color-cyber-light: #2a2d3d;
+      }
+
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, var(--color-cyber-dark) 0%, var(--color-cyber-light) 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.3s ease-out;
+        z-index: 9999;
+      }
+
+      .arcade-logo {
+        font-family: 'Press Start 2P', monospace;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 2rem;
+        text-align: center;
+      }
+
+      .neon-pink {
+        color: var(--color-neon-pink);
+        text-shadow: 0 0 10px var(--color-neon-pink);
+      }
+
+      .neon-cyan {
+        color: var(--color-neon-cyan);
+        text-shadow: 0 0 10px var(--color-neon-cyan);
+      }
+
+      .neon-purple {
+        color: var(--color-neon-purple);
+        text-shadow: 0 0 10px var(--color-neon-purple);
+      }
+
+      .loading-text {
+        color: white;
+        font-size: 1.125rem;
+        margin: 1.5rem 0;
+        font-family: 'Press Start 2P', monospace;
+        opacity: 0.8;
+      }
+
+      .progress {
+        width: 300px;
+        height: 4px;
+        background: var(--color-cyber-darker);
+        border-radius: 2px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .progress::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, 
+          transparent,
+          var(--color-neon-pink),
+          var(--color-neon-purple),
+          var(--color-neon-cyan),
+          transparent
+        );
+        filter: blur(4px);
+        opacity: 0.5;
+      }
+
+      .progress-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg,
+          var(--color-neon-pink),
+          var(--color-neon-purple),
+          var(--color-neon-cyan)
+        );
+        transition: width 0.3s ease-out;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .progress-text {
+        color: var(--color-neon-cyan);
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.75rem;
+        margin-top: 1rem;
+        text-shadow: 0 0 5px var(--color-neon-cyan);
+      }
+
+      .error-message {
+        color: var(--color-neon-pink);
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.875rem;
+        margin-top: 1rem;
+        text-align: center;
+        max-width: 80%;
+      }
+
+      .retry-button {
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        background: transparent;
+        border: 1px solid var(--color-neon-cyan);
+        color: var(--color-neon-cyan);
+        font-family: 'Press Start 2P', monospace;
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .retry-button:hover {
+        background: var(--color-neon-cyan);
+        color: var(--color-cyber-dark);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading-screen">
+      <div class="arcade-logo">
+        <div>
+          <span class="neon-pink">CLAPP</span>
+          <span class="neon-cyan">CODE</span>
+        </div>
+        <div class="neon-purple" style="font-size: 0.65rem; margin-top: 0.25rem;">
+          Sail right in
+        </div>
+      </div>
+      <div class="loading-text" id="loading-text">Preparing your workspace...</div>
+      <div class="progress">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="progress-text" id="progress-text">0% Complete</div>
+      <div class="error-message" id="error-message" style="display: none;">
+        Error loading application. Please try again.
+      </div>
+      <button class="retry-button" id="retry-button" style="display: none;" onclick="window.location.reload()">
+        Retry
+      </button>
+    </div>
+    <div id="root"></div>
+    <script>
+      const loadingScreen = document.getElementById('loading-screen');
+      const loadingText = document.getElementById('loading-text');
+      const progressBar = document.getElementById('progress-bar');
+      const progressText = document.getElementById('progress-text');
+      const errorMessage = document.getElementById('error-message');
+      const retryButton = document.getElementById('retry-button');
+      
+      const loadingSteps = [
+        { name: 'Initializing environment', weight: 10, duration: 1000 },
+        { name: 'Loading dependencies', weight: 20, duration: 1500 },
+        { name: 'Connecting to database', weight: 30, duration: 2000 },
+        { name: 'Configuring storage', weight: 20, duration: 1500 },
+        { name: 'Preparing application', weight: 20, duration: 1000 }
+      ];
+
+      let currentStep = 0;
+      let progress = 0;
+      
+      function updateProgress() {
+        const step = loadingSteps[currentStep];
+        if (!step) return;
+
+        const stepProgress = Math.min(100, progress + step.weight);
+        const stepDuration = step.duration;
+        const startProgress = progress;
+        const startTime = Date.now();
+
+        function animate() {
+          const elapsed = Date.now() - startTime;
+          const stepPercentage = Math.min(1, elapsed / stepDuration);
+          progress = startProgress + (stepProgress - startProgress) * stepPercentage;
+
+          progressBar.style.width = `${progress}%`;
+          progressText.textContent = `${Math.round(progress)}% Complete`;
+          loadingText.textContent = step.name;
+
+          if (progress < stepProgress) {
+            requestAnimationFrame(animate);
+          } else {
+            currentStep++;
+            if (currentStep < loadingSteps.length) {
+              setTimeout(updateProgress, 200);
+            } else {
+              checkAppReady();
+            }
+          }
+        }
+
+        requestAnimationFrame(animate);
+      }
+
+      function checkAppReady() {
+        const maxAttempts = 50;
+        let attempts = 0;
+        
+        const check = setInterval(() => {
+          attempts++;
+          const rootElement = document.querySelector('#root');
+          const hasContent = rootElement && rootElement.children.length > 0;
+          
+          if (hasContent) {
+            clearInterval(check);
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 300);
+          } else if (attempts >= maxAttempts) {
+            clearInterval(check);
+            loadingText.style.display = 'none';
+            progressBar.style.display = 'none';
+            progressText.style.display = 'none';
+            errorMessage.style.display = 'block';
+            retryButton.style.display = 'block';
+          }
+        }, 100);
+      }
+
+      // Start the loading sequence
+      setTimeout(updateProgress, 500);
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

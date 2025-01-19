@@ -1,0 +1,23 @@
+tasks:
+  - name: Install Dependencies
+    init: npm install
+    command: npm run dev
+
+  - name: Setup Database
+    command: |
+      echo "Setting up database..."
+      npm run db:init
+      echo "Setting up storage..."
+      npm run storage:setup
+
+ports:
+  - port: 5173
+    onOpen: open-preview
+    visibility: public
+
+vscode:
+  extensions:
+    - dbaeumer.vscode-eslint
+    - esbenp.prettier-vscode
+    - bradlc.vscode-tailwindcss
+    - github.copilot

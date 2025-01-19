@@ -1,0 +1,33 @@
+[api]
+enabled_apis = ["rest", "realtime", "storage", "functions"]
+port = 54321
+schemas = ["public", "storage", "auth"]
+extra_search_path = ["extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+port = 54323
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["https://localhost:5173"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[storage]
+file_size_limit = "50MiB"
+
+[storage.image_transformation]
+enabled = true
+
+[functions]
+serve_port = 54324
