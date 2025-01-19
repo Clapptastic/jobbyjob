@@ -1,53 +1,36 @@
-FROM node:20-alpine as builder
+FROM node:20-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Playwright dependencies
+RUN npx playwright install-deps chromium
 
 # Set working directory
 WORKDIR /app
 
-# Install dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm ci
 
-# Copy source code
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the code
 COPY . .
 
-# Build application
-RUN npm run build
+# Create .env file if it doesn't exist
+RUN touch .env
 
-# Production stage
-FROM nginx:alpine
-
-# Install security updates and utilities
-RUN apk update && \
-    apk upgrade && \
-    apk add --no-cache curl && \
-    adduser -D -H -s /sbin/nologin nginx
-
-# Copy built assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Copy nginx configuration
-COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
-
-# Set correct permissions
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chmod -R 755 /usr/share/nginx/html
-
-# Configure security headers
-RUN echo 'add_header X-Frame-Options "SAMEORIGIN";' >> /etc/nginx/conf.d/default.conf && \
-    echo 'add_header X-XSS-Protection "1; mode=block";' >> /etc/nginx/conf.d/default.conf && \
-    echo 'add_header X-Content-Type-Options "nosniff";' >> /etc/nginx/conf.d/default.conf && \
-    echo 'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;' >> /etc/nginx/conf.d/default.conf && \
-    echo 'add_header Content-Security-Policy "default-src '\''self'\''; script-src '\''self'\'' '\''unsafe-inline'\'' '\''unsafe-eval'\''; style-src '\''self'\'' '\''unsafe-inline'\'' https://fonts.googleapis.com; font-src '\''self'\'' https://fonts.gstatic.com data:; img-src '\''self'\'' data: https:; connect-src '\''self'\'' https://*.supabase.co https://api.openai.com;"' >> /etc/nginx/conf.d/default.conf
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/health || exit 1
-
-# Switch to non-root user
-USER nginx
+# Set environment variables with defaults
+ENV NODE_ENV=development \
+    VITE_DEV_MODE=true \
+    VITE_DOCKER=true
 
 # Expose port
-EXPOSE 80
+EXPOSE 3000
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start development server
+CMD ["npm", "run", "dev"]

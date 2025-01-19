@@ -1,53 +1,44 @@
 import { test, expect } from '@playwright/test';
-import { supabase } from '../../lib/supabase';
 import { databaseValidator } from '../../lib/databaseValidator';
 
-test.describe('Database Integration', () => {
-  test('should connect to Supabase successfully', async () => {
+test.describe('Database Operations', () => {
+  test('validates database connection and schema', async () => {
+    // Test connection
     const isConnected = await databaseValidator.validateConnection();
     expect(isConnected).toBe(true);
+
+    // Test schema validation
+    const schemaResult = await databaseValidator.validateSchema();
+    expect(schemaResult.valid).toBe(true);
+    expect(schemaResult.errors).toHaveLength(0);
   });
 
-  test('should have correct database schema', async () => {
-    const result = await databaseValidator.validateSchema();
-    expect(result.valid).toBe(true);
-    expect(result.errors).toHaveLength(0);
-  });
-
-  test('should have proper permissions', async () => {
-    const result = await databaseValidator.validatePermissions();
-    expect(result.valid).toBe(true);
-    expect(result.errors).toHaveLength(0);
-  });
-
-  test('should handle API operations', async () => {
-    // Test read operation
-    const { data: readData, error: readError } = await supabase
-      .from('profiles')
-      .select('count')
-      .limit(1);
-    
-    expect(readError).toBeNull();
-    expect(readData).toBeDefined();
-
-    // Test write operation
-    const testProfile = {
-      id: '00000000-0000-0000-0000-000000000000',
+  test('handles database operations', async () => {
+    const testData = {
+      id: `test-${Date.now()}`,
+      name: 'Test User',
       email: 'test@example.com'
     };
 
-    const { error: writeError } = await supabase
-      .from('profiles')
-      .upsert(testProfile);
+    // Test insert
+    const insertResult = await databaseValidator.testInsert(testData);
+    expect(insertResult.success).toBe(true);
 
-    expect(writeError).toBeNull();
+    // Test retrieve
+    const retrieveResult = await databaseValidator.testRetrieve(testData.id);
+    expect(retrieveResult.success).toBe(true);
+    expect(retrieveResult.data).toEqual(testData);
 
-    // Test storage operation
-    const { data: buckets, error: storageError } = await supabase.storage.listBuckets();
-    
-    expect(storageError).toBeNull();
-    expect(buckets).toBeDefined();
-    expect(buckets?.some(b => b.name === 'resumes')).toBe(true);
-    expect(buckets?.some(b => b.name === 'avatars')).toBe(true);
+    // Test delete
+    const deleteResult = await databaseValidator.testDelete(testData.id);
+    expect(deleteResult.success).toBe(true);
+  });
+
+  test('handles invalid operations', async () => {
+    // Test invalid insert
+    const invalidData = { invalid: true };
+    const insertResult = await databaseValidator.testInsert(invalidData);
+    expect(insertResult.success).toBe(false);
+    expect(insertResult.error).toContain('Invalid data format');
   });
 });

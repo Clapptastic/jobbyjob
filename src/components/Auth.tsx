@@ -5,14 +5,16 @@ import { auth } from '../lib/auth';
 import { useStore } from '../store/useStore';
 import { toast } from 'react-hot-toast';
 import logger from '../lib/logger';
+import { supabase } from '../lib/supabaseClient';
 
 const log = logger('Auth');
 
 interface AuthProps {
   mode: 'login' | 'signup' | 'reset';
+  onSuccess?: () => void;
 }
 
-export default function Auth({ mode }: AuthProps) {
+export default function Auth({ mode = 'login', onSuccess }: AuthProps) {
   const navigate = useNavigate();
   const setUser = useStore((state) => state.setUser);
   const [email, setEmail] = useState('');
@@ -32,6 +34,9 @@ export default function Auth({ mode }: AuthProps) {
           setUser(user);
           toast.success('Welcome back!');
           navigate('/dashboard');
+          if (onSuccess) {
+            onSuccess();
+          }
         }
       } else if (mode === 'signup') {
         const { user } = await auth.signUp({ email, password });

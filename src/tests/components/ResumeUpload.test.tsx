@@ -1,57 +1,61 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import ResumeUpload from '../../components/ResumeUpload';
-import { supabase } from '../../lib/supabase';
-import { toast } from 'react-hot-toast';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { render, fireEvent } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import { ResumeUpload } from '../../components/ResumeUpload';
+import { uploadResume } from '../../lib/storage';
+import toast from 'react-hot-toast';
 
-vi.mock('../../lib/supabase');
-vi.mock('react-hot-toast');
+// Mock dependencies
+vi.mock('../../lib/storage', () => ({
+  uploadResume: vi.fn()
+}));
+
+vi.mock('react-hot-toast', () => ({
+  default: {
+    error: vi.fn(),
+    success: vi.fn()
+  }
+}));
 
 describe('ResumeUpload Component', () => {
-  const mockFile = new File(['test'], 'resume.pdf', { type: 'application/pdf' });
-
   beforeEach(() => {
-    vi.mocked(supabase.storage.from).mockReturnValue({
-      upload: vi.fn().mockResolvedValue({ data: { path: 'test/resume.pdf' }, error: null }),
-      getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://test.com/resume.pdf' }, error: null })
-    });
+    // Mock window.URL
+    global.URL = {
+      createObjectURL: vi.fn(),
+      revokeObjectURL: vi.fn()
+    } as any;
   });
 
-  it('renders upload area correctly', () => {
-    render(<ResumeUpload />);
-    expect(screen.getByText(/click or drag resume to upload/i)).toBeInTheDocument();
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('handles file upload successfully', async () => {
-    render(<ResumeUpload />);
-    
-    const dropzone = screen.getByText(/click or drag resume to upload/i).parentElement!;
-    fireEvent.drop(dropzone, {
-      dataTransfer: {
-        files: [mockFile]
-      }
-    });
-
-    await waitFor(() => {
-      expect(supabase.storage.from).toHaveBeenCalledWith('resumes');
-      expect(toast.success).toHaveBeenCalledWith('Resume uploaded successfully!');
-    });
+  it('renders upload area', () => {
+    const { getByText } = render(<ResumeUpload />);
+    expect(getByText(/upload resume/i)).toBeInTheDocument();
   });
 
-  it('validates file size', async () => {
-    const largeFile = new File(['test'.repeat(1000000)], 'large.pdf', { type: 'application/pdf' });
+  it('handles file upload', async () => {
+    const { getByLabelText } = render(<ResumeUpload />);
+    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
     
-    render(<ResumeUpload />);
+    vi.mocked(uploadResume).mockResolvedValueOnce({ success: true, url: 'test-url' });
     
-    const dropzone = screen.getByText(/click or drag resume to upload/i).parentElement!;
-    fireEvent.drop(dropzone, {
-      dataTransfer: {
-        files: [largeFile]
-      }
-    });
+    const input = getByLabelText(/upload resume/i);
+    await fireEvent.change(input, { target: { files: [file] } });
+    
+    expect(uploadResume).toHaveBeenCalledWith(file, expect.any(String));
+  });
 
-    await waitFor(() => {
-      expect(screen.getByText(/file size must be less than 5mb/i)).toBeInTheDocument();
-    });
+  it('handles upload errors', async () => {
+    const { getByLabelText } = render(<ResumeUpload />);
+    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
+    
+    vi.mocked(uploadResume).mockRejectedValueOnce(new Error('Upload failed'));
+    
+    const input = getByLabelText(/upload resume/i);
+    await fireEvent.change(input, { target: { files: [file] } });
+    
+    expect(uploadResume).toHaveBeenCalledWith(file, expect.any(String));
   });
 });

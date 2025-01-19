@@ -1,99 +1,115 @@
-import { supabase } from './supabase';
-import { toast } from 'react-hot-toast';
-import logger from './logger';
+import { supabase } from './supabaseClient';
+import { createLogger } from './logger';
 
-const log = logger('DatabaseValidator');
+const log = createLogger('DatabaseValidator');
 
-interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-  warnings: string[];
-}
+const REQUIRED_TABLES = ['profiles', 'resumes', 'jobs', 'applications'];
+const REQUIRED_BUCKETS = ['resumes'];
 
-export const databaseValidator = {
-  async validateSchema(): Promise<ValidationResult> {
-    const result: ValidationResult = {
-      valid: true,
-      errors: [],
-      warnings: []
-    };
+export class DatabaseValidator {
+  async validateConnection(): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.from('profiles').select('count');
+      if (error) {
+        log.error('Connection validation failed:', error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      log.error('Connection validation failed:', error);
+      return false;
+    }
+  }
+
+  async validateSchema(): Promise<{ valid: boolean; errors: string[] }> {
+    const errors: string[] = [];
 
     try {
-      // First check basic connection
-      const { error: healthCheck } = await supabase.rpc('exec_sql', {
-        sql: 'SELECT 1;'
-      });
-
-      if (healthCheck) {
-        result.valid = false;
-        result.errors.push('Failed to connect to database');
-        return result;
-      }
-
-      // Check required tables using RPC
-      const { data: tables, error: tablesError } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT table_name 
-          FROM pg_tables 
-          WHERE schemaname = 'public';
-        `
-      });
+      // Check tables
+      const { data: tables, error: tablesError } = await supabase.from('information_schema.tables')
+        .select('table_name')
+        .eq('table_schema', 'public');
 
       if (tablesError) {
-        result.valid = false;
-        result.errors.push(`Failed to check tables: ${tablesError.message}`);
-        return result;
+        throw new Error('Failed to fetch tables');
       }
 
-      const requiredTables = ['profiles', 'jobs', 'applications', 'api_keys'];
-      const missingTables = requiredTables.filter(
-        table => !tables?.some(t => t.table_name === table)
-      );
+      const tableNames = tables.map(t => t.table_name);
+      const missingTables = REQUIRED_TABLES.filter(table => !tableNames.includes(table));
 
       if (missingTables.length > 0) {
-        result.valid = false;
-        result.errors.push(`Missing required tables: ${missingTables.join(', ')}`);
+        errors.push(`Missing required tables: ${missingTables.join(', ')}`);
       }
 
       // Check storage buckets
       const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
       
       if (bucketsError) {
-        result.valid = false;
-        result.errors.push(`Failed to check storage buckets: ${bucketsError.message}`);
-      } else {
-        const requiredBuckets = ['resumes', 'avatars'];
-        const missingBuckets = requiredBuckets.filter(
-          bucket => !buckets?.some(b => b.name === bucket)
-        );
-
-        if (missingBuckets.length > 0) {
-          result.valid = false;
-          result.errors.push(`Missing storage buckets: ${missingBuckets.join(', ')}`);
-        }
+        throw new Error('Failed to check storage buckets');
       }
 
-      // Check RLS policies
-      const { data: policies, error: policiesError } = await supabase.rpc('exec_sql', {
-        sql: `
-          SELECT tablename, policyname
-          FROM pg_policies 
-          WHERE schemaname IN ('public', 'storage');
-        `
-      });
+      const bucketNames = buckets.map(b => b.name);
+      const missingBuckets = REQUIRED_BUCKETS.filter(bucket => !bucketNames.includes(bucket));
 
-      if (policiesError) {
-        result.warnings.push(`Could not verify RLS policies: ${policiesError.message}`);
-      } else if (!policies?.length) {
-        result.warnings.push('No RLS policies found. Security might be misconfigured.');
+      if (missingBuckets.length > 0) {
+        errors.push(`Missing required buckets: ${missingBuckets.join(', ')}`);
       }
 
-    } catch (error: any) {
-      log.error('Schema validation failed:', error);
-      result.valid = false;
-      result.errors.push(error.message || 'Failed to validate database schema');
+      return {
+        valid: errors.length === 0,
+        errors
+      };
+    } catch (error) {
+      log.error('Schema validation error:', error);
+      return {
+        valid: false,
+        errors: [(error as Error).message]
+      };
     }
-
-    return result;
   }
-};
+
+  async testInsert(data: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!data.id || !data.name || !data.email) {
+        return { success: false, error: 'Invalid data format' };
+      }
+
+      const { error } = await supabase.from('profiles').insert(data);
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (err) {
+      log.error('Insert operation failed:', err);
+      return { success: false, error: 'Insert operation failed' };
+    }
+  }
+
+  async testRetrieve(id: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true, data };
+    } catch (err) {
+      log.error('Retrieve operation failed:', err);
+      return { success: false, error: 'Retrieve operation failed' };
+    }
+  }
+
+  async testDelete(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase.from('profiles').delete().eq('id', id);
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (err) {
+      log.error('Delete operation failed:', err);
+      return { success: false, error: 'Delete operation failed' };
+    }
+  }
+}
+
+export const databaseValidator = new DatabaseValidator();

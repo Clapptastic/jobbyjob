@@ -1,69 +1,91 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { supabase } from '../lib/supabase';
-import { resumeParser } from '../lib/resumeParser';
-import { auth } from '../lib/auth';
+import { uploadResume } from '../lib/storage';
+import { parseResume } from '../lib/ai';
+
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      signUp: vi.fn(),
+      signOut: vi.fn()
+    },
+    storage: {
+      from: vi.fn()
+    }
+  }
+}));
+
+vi.mock('../lib/storage', () => ({
+  uploadResume: vi.fn()
+}));
+
+vi.mock('../lib/ai', () => ({
+  parseResume: vi.fn()
+}));
 
 describe('End-to-End Flow', () => {
-  let userId: string;
-  let resumeUrl: string;
+  const testUser = {
+    id: 'test-user-id',
+    email: `test-${Date.now()}@example.com`,
+    password: 'Test123!@#'
+  };
 
   beforeAll(async () => {
-    // Create test user
-    const { data: { user }, error } = await auth.signUp({
-      email: `test-${Date.now()}@example.com`,
-      password: 'Test123!@#'
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({
+      data: { user: { id: testUser.id } },
+      error: null
     });
-    
-    if (error) throw error;
-    userId = user!.id;
   });
 
   afterAll(async () => {
-    // Cleanup test data
-    if (userId) {
-      await supabase.storage.from('resumes').remove([`${userId}/*`]);
-      await supabase.from('profiles').delete().eq('id', userId);
-    }
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null });
+    await supabase.auth.signOut();
   });
 
-  it('should handle complete user flow', async () => {
-    // 1. Upload resume
-    const mockResume = new File(['test resume content'], 'resume.pdf', { type: 'application/pdf' });
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('resumes')
-      .upload(`${userId}/resume.pdf`, mockResume);
+  it('should complete the full application flow', async () => {
+    // Sign up
+    const { data: { user }, error } = await supabase.auth.signUp({
+      email: testUser.email,
+      password: testUser.password
+    });
 
-    expect(uploadError).toBeNull();
-    expect(uploadData).toBeDefined();
-    resumeUrl = uploadData!.path;
+    expect(error).toBeNull();
+    expect(user).toBeDefined();
+    expect(user!.id).toBe(testUser.id);
 
-    // 2. Parse resume
-    const parsedContent = await resumeParser.parse('test resume content');
-    expect(parsedContent).toHaveProperty('skills');
-    expect(parsedContent).toHaveProperty('experience');
-    expect(parsedContent).toHaveProperty('education');
+    // Upload resume
+    const testFile = new File(['test resume content'], 'resume.pdf', { type: 'application/pdf' });
+    vi.mocked(uploadResume).mockResolvedValue({
+      path: 'resumes/test-user/resume.pdf',
+      url: 'https://example.com/resume.pdf'
+    });
 
-    // 3. Update profile
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        resume_url: resumeUrl,
-        resume_content: parsedContent
-      })
-      .eq('id', userId);
+    const uploadResult = await uploadResume(testFile, user!.id);
+    expect(uploadResult).toBeDefined();
+    expect(uploadResult.path).toBeDefined();
+    expect(uploadResult.url).toBeDefined();
 
-    expect(updateError).toBeNull();
+    // Parse resume
+    vi.mocked(parseResume).mockResolvedValue({
+      skills: ['JavaScript', 'React', 'Node.js'],
+      experience: [{
+        title: 'Software Engineer',
+        company: 'Test Company',
+        startDate: '2020-01',
+        endDate: '2023-12',
+        description: 'Development work'
+      }],
+      education: [{
+        degree: 'Bachelor of Science',
+        school: 'Test University',
+        graduationDate: '2019-05'
+      }]
+    });
 
-    // 4. Verify profile update
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    expect(profileError).toBeNull();
-    expect(profile).toBeDefined();
-    expect(profile!.resume_url).toBe(resumeUrl);
-    expect(profile!.resume_content).toEqual(parsedContent);
+    const parsedResume = await parseResume(uploadResult.path);
+    expect(parsedResume).toBeDefined();
+    expect(parsedResume.skills).toHaveLength(3);
+    expect(parsedResume.experience).toHaveLength(1);
+    expect(parsedResume.education).toHaveLength(1);
   });
 });

@@ -1,21 +1,33 @@
-type LogLevel = 'error' | 'warn' | 'info' | 'debug';
+import { LogLevel } from './types';
 
-interface Logger {
-  error: (...args: any[]) => void;
-  warn: (...args: any[]) => void;
-  info: (...args: any[]) => void;
-  debug: (...args: any[]) => void;
+class Logger {
+  constructor(private context: string) {}
+
+  info(message: string, data?: any) {
+    this.log('info', message, data);
+  }
+
+  warn(message: string, data?: any) {
+    this.log('warn', message, data);
+  }
+
+  error(message: string, data?: any) {
+    this.log('error', message, data);
+  }
+
+  debug(message: string, data?: any) {
+    this.log('debug', message, data);
+  }
+
+  private log(level: LogLevel, message: string, data?: any) {
+    const timestamp = new Date().toISOString();
+    const formattedMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+    console.log(formattedMessage, data ? data : '');
+  }
 }
 
-export default function createLogger(namespace: string): Logger {
-  const formatMessage = (level: LogLevel, args: any[]): any[] => {
-    return [`[${namespace}] [${level.toUpperCase()}]`, ...args];
-  };
-
-  return {
-    error: (...args) => console.error(...formatMessage('error', args)),
-    warn: (...args) => console.warn(...formatMessage('warn', args)),
-    info: (...args) => console.info(...formatMessage('info', args)),
-    debug: (...args) => console.debug(...formatMessage('debug', args))
-  };
+export function createLogger(context: string) {
+  return new Logger(context);
 }
+
+export default createLogger;

@@ -1,9 +1,80 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 import { resolve } from 'path';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'service-worker.ts',
+      injectRegister: 'auto',
+      registerType: 'autoUpdate',
+      devOptions: {
+        enabled: true,
+        type: 'module',
+        navigateFallback: 'index.html',
+      },
+      manifest: {
+        name: 'JobbyJob',
+        short_name: 'JobbyJob',
+        description: 'Your AI-powered job search assistant',
+        theme_color: '#4F46E5',
+        background_color: '#ffffff',
+        display: 'standalone',
+        start_url: '/',
+        scope: '/',
+        icons: [
+          {
+            src: '/icon.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: [
+          '**/*.{js,css,html,ico,png,svg}',
+          'manifest.webmanifest',
+          'registerSW.js',
+          'icon.svg'
+        ],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'google-fonts-stylesheets',
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              cacheableResponse: {
+                statuses: [0, 200]
+              },
+              expiration: {
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+                maxEntries: 30
+              }
+            }
+          }
+        ],
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/rest/, /^\/storage/, /^\/auth/],
+        cleanupOutdatedCaches: true,
+        sourcemap: true
+      }
+    })
+  ],
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
@@ -31,13 +102,13 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,
+    port: 3000,
     host: true,
+    strictPort: true,
     hmr: {
-      overlay: true,
-      clientPort: 5173,
-      timeout: 30000,
-      protocol: 'ws'
+      host: 'localhost',
+      port: 3000,
+      clientPort: 3000
     },
     watch: {
       usePolling: true,
@@ -46,7 +117,8 @@ export default defineConfig({
   },
   preview: {
     port: 5173,
-    host: true
+    host: true,
+    strictPort: true
   },
   optimizeDeps: {
     include: [

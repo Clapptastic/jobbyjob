@@ -40,7 +40,7 @@ async function prepare() {
       execSync('npm install', { stdio: 'inherit' });
     }
 
-    // Verify critical dependencies
+    // Install critical dependencies if missing
     const criticalDeps = [
       '@supabase/supabase-js',
       '@tanstack/react-query',
@@ -52,14 +52,14 @@ async function prepare() {
 
     for (const dep of criticalDeps) {
       try {
-        require.resolve(dep);
+        await import(dep);
       } catch (e) {
         console.log(`Missing critical dependency: ${dep}, installing...`);
         execSync(`npm install ${dep}`, { stdio: 'inherit' });
       }
     }
 
-    // Verify dev dependencies
+    // Install critical dev dependencies if missing
     const criticalDevDeps = [
       'vite',
       'vitest',
@@ -70,7 +70,7 @@ async function prepare() {
 
     for (const dep of criticalDevDeps) {
       try {
-        require.resolve(dep);
+        await import(dep);
       } catch (e) {
         console.log(`Missing critical dev dependency: ${dep}, installing...`);
         execSync(`npm install -D ${dep}`, { stdio: 'inherit' });

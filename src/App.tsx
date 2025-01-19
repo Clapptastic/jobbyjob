@@ -16,7 +16,7 @@ import logger from './lib/logger';
 
 const log = logger('App');
 
-export default function App() {
+const AppContent: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needsCredentials, setNeedsCredentials] = useState(false);
@@ -89,64 +89,52 @@ export default function App() {
     } catch (error: any) {
       log.error('App initialization failed:', error);
       
-      // Clear invalid credentials
-      if (error.message?.includes('credentials') || error.message?.includes('database')) {
-        localStorage.removeItem('VITE_SUPABASE_URL');
-        localStorage.removeItem('VITE_SUPABASE_ANON_KEY');
-        localStorage.removeItem('VITE_SUPABASE_SERVICE_ROLE_KEY');
-        localStorage.removeItem('secretsConfigured');
+      const isDocker = import.meta.env.VITE_DOCKER === 'true';
+      
+      // In Docker, don't clear environment variables, just show SecretsManager
+      if (isDocker) {
         setNeedsCredentials(true);
       } else {
-        setError(error.message || 'Failed to initialize application');
+        // Clear invalid credentials from localStorage
+        if (error.message?.includes('credentials') || error.message?.includes('database')) {
+          localStorage.removeItem('VITE_SUPABASE_URL');
+          localStorage.removeItem('VITE_SUPABASE_ANON_KEY');
+          localStorage.removeItem('VITE_SUPABASE_SERVICE_ROLE_KEY');
+          localStorage.removeItem('secretsConfigured');
+          setNeedsCredentials(true);
+        } else {
+          setError(error.message || 'Failed to initialize application');
+        }
       }
       setIsLoading(false);
     }
   };
 
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
-
-  if (needsCredentials) {
-    return <SecretsManager />;
-  }
-
-  if (error) {
-    return <DatabaseError error={error} onRetry={initializeApp} />;
-  }
-
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-cyber-gradient">
+      {isLoading ? (
+        <LoadingScreen />
+      ) : error ? (
+        <DatabaseError error={error} />
+      ) : needsCredentials ? (
+        <SecretsManager onCredentialsSet={() => setNeedsCredentials(false)} />
+      ) : (
         <Routes>
-          {/* Public routes */}
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/auth" element={<Auth />} />
           <Route path="/request-access" element={<RequestAccess />} />
           <Route path="/approve-access" element={<ApproveAccess />} />
-          <Route path="/faq" element={<FAQ />} />
-          
-          {/* Auth routes */}
-          <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Auth mode="login" />} />
-          <Route path="/signup" element={user ? <Navigate to="/dashboard" replace /> : <Auth mode="signup" />} />
-          <Route path="/reset-password" element={user ? <Navigate to="/dashboard" replace /> : <Auth mode="reset" />} />
-          
-          {/* Protected routes */}
-          <Route path="/dashboard/*" element={user ? <Dashboard /> : <Navigate to="/login" replace state={{ from: location }} />} />
-          
-          {/* Root route */}
-          <Route path="/" element={
-            user ? (
-              <Navigate to="/dashboard" replace />
-            ) : localStorage.getItem('secretsConfigured') ? (
-              <Navigate to="/login" replace />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          } />
-
-          {/* Catch-all route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route
+            path="/dashboard/*"
+            element={user ? <Dashboard /> : <Navigate to="/auth" state={{ from: location }} replace />}
+          />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-      </div>
+      )}
     </ErrorBoundary>
   );
+};
+
+export default function App() {
+  return <AppContent />;
 }

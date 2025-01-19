@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -12,6 +10,7 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+      - VITE_DOCKER=true
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
       - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY}
@@ -31,6 +30,7 @@ services:
       - ./test-results:/app/test-results
     environment:
       - NODE_ENV=test
+      - VITE_DOCKER=true
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
       - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY}

@@ -1,40 +1,52 @@
-import { describe, test, expect, vi } from 'vitest';
-import { storage } from '../../lib/storage';
-import { supabase } from '../../lib/supabase';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { uploadResume } from '../../lib/storage';
+import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
-vi.mock('../../lib/supabase');
+// Mock dependencies
+vi.mock('../../lib/supabaseClient', () => ({
+  supabase: {
+    storage: {
+      from: vi.fn()
+    }
+  }
+}));
+
+vi.mock('react-hot-toast', () => ({
+  default: {
+    error: vi.fn(),
+    success: vi.fn()
+  }
+}));
 
 describe('Storage Module', () => {
-  test('validates file type correctly', async () => {
-    const validFile = new File(['test'], 'test.pdf', { type: 'application/pdf' });
-    const invalidFile = new File(['test'], 'test.txt', { type: 'text/plain' });
-
-    await expect(storage.uploadResume(validFile, 'test-user'))
-      .resolves.toBeDefined();
-
-    await expect(storage.uploadResume(invalidFile, 'test-user'))
-      .rejects.toThrow('Invalid file type');
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  test('validates file size correctly', async () => {
-    const smallFile = new File(['test'], 'small.pdf', { type: 'application/pdf' });
-    const largeFile = new File([new ArrayBuffer(6 * 1024 * 1024)], 'large.pdf', { type: 'application/pdf' });
-
-    await expect(storage.uploadResume(smallFile, 'test-user'))
-      .resolves.toBeDefined();
-
-    await expect(storage.uploadResume(largeFile, 'test-user'))
-      .rejects.toThrow('File size must be less than 5MB');
+  it('validates file type correctly', async () => {
+    const file = new File(['test'], 'test.txt', { type: 'text/plain' });
+    
+    await expect(uploadResume(file, 'test-user')).rejects.toThrow('Invalid file type');
+    expect(toast.error).toHaveBeenCalledWith('Invalid file type. Please upload a PDF file.');
   });
 
-  test('handles upload errors gracefully', async () => {
-    vi.mocked(supabase.storage.from).mockReturnValue({
-      upload: vi.fn().mockRejectedValue(new Error('Upload failed')),
-      getPublicUrl: vi.fn()
-    });
+  it('validates file size correctly', async () => {
+    // Create a file larger than 5MB
+    const largeContent = new Array(6 * 1024 * 1024).fill('a').join('');
+    const file = new File([largeContent], 'test.pdf', { type: 'application/pdf' });
+    
+    await expect(uploadResume(file, 'test-user')).rejects.toThrow('File size exceeds 5MB limit');
+    expect(toast.error).toHaveBeenCalledWith('File size exceeds 5MB limit');
+  });
 
+  it('handles upload errors gracefully', async () => {
     const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
-    await expect(storage.uploadResume(file, 'test-user'))
-      .rejects.toThrow('Upload failed');
+    const mockUpload = vi.fn().mockRejectedValue(new Error('Upload failed'));
+    const mockFrom = vi.fn().mockReturnValue({ upload: mockUpload });
+    vi.mocked(supabase.storage.from).mockImplementation(mockFrom);
+
+    await expect(uploadResume(file, 'test-user')).rejects.toThrow('Upload failed');
+    expect(toast.error).toHaveBeenCalledWith('Error uploading resume: Upload failed');
   });
 });

@@ -23,84 +23,41 @@ interface ParsedResume {
 // Local fallback parser
 const localParser = {
   parseText(text: string): ParsedResume {
-    const lines = text.split('\n').map(line => line.trim());
-    const result: ParsedResume = {
-      skills: [],
-      experience: [],
-      education: []
+    const sections = text.split('\n\n');
+    const result = {
+      skills: [] as string[],
+      experience: [] as any[],
+      education: [] as any[]
     };
 
     let currentSection = '';
-    let currentItem: any = {};
+    let currentItem = null;
 
-    for (const line of lines) {
-      // Skip empty lines
-      if (!line) continue;
-
-      // Detect sections
-      const lowerLine = line.toLowerCase();
-      if (lowerLine.includes('skills') || lowerLine.includes('technologies')) {
-        currentSection = 'skills';
-        continue;
-      }
-      if (lowerLine.includes('experience') || lowerLine.includes('employment')) {
+    sections.forEach(section => {
+      const lines = section.trim().split('\n');
+      if (lines[0] === 'SKILLS') {
+        result.skills = lines[1].split(', ');
+      } else if (lines[0] === 'EXPERIENCE') {
         currentSection = 'experience';
-        continue;
-      }
-      if (lowerLine.includes('education') || lowerLine.includes('academic')) {
+        if (lines.length >= 3) {
+          result.experience.push({
+            title: lines[1],
+            company: lines[2],
+            description: lines[3] || '',
+            duration: ''
+          });
+        }
+      } else if (lines[0] === 'EDUCATION') {
         currentSection = 'education';
-        continue;
+        if (lines.length >= 2) {
+          result.education.push({
+            degree: lines[1],
+            school: lines[2] || '',
+            year: lines[1].match(/\d{4}/)?.[0] || ''
+          });
+        }
       }
-
-      // Process line based on section
-      switch (currentSection) {
-        case 'skills':
-          // Split skills by common delimiters
-          const skills = line.split(/[,•|]/).map(s => s.trim()).filter(Boolean);
-          result.skills.push(...skills);
-          break;
-
-        case 'experience':
-          if (line.match(/\d{4}/)) { // Line contains a year - likely a new position
-            if (currentItem.title) {
-              result.experience.push({ ...currentItem });
-            }
-            currentItem = {
-              title: line,
-              company: '',
-              duration: '',
-              description: ''
-            };
-          } else if (currentItem.title && !currentItem.company) {
-            currentItem.company = line;
-          } else if (currentItem.title) {
-            currentItem.description += line + ' ';
-          }
-          break;
-
-        case 'education':
-          if (line.match(/\d{4}/)) { // Line contains a year - likely a new degree
-            if (currentItem.degree) {
-              result.education.push({ ...currentItem });
-            }
-            currentItem = {
-              degree: line,
-              school: '',
-              year: line.match(/\d{4}/)[0]
-            };
-          } else if (currentItem.degree && !currentItem.school) {
-            currentItem.school = line;
-          }
-          break;
-      }
-    }
-
-    // Add last items if any
-    if (currentSection === 'experience' && currentItem.title) {
-      result.experience.push(currentItem);
-    } else if (currentSection === 'education' && currentItem.degree) {
-      result.education.push(currentItem);
-    }
+    });
 
     return result;
   }
