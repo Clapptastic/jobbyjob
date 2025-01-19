@@ -1,262 +1,311 @@
-# ClappCode - AI Development Context 🚀
+# AI Context Guide 🤖
 
-[Previous content remains exactly the same until the end...]
+## Application Overview
 
-## Style Guide
+JobbyJob is an AI-powered job search assistant that leverages modern web technologies and artificial intelligence to automate and optimize the job search process. This document provides comprehensive context for AI assistants working with the codebase.
 
-### Theme Colors
-```css
-:root {
-  /* Primary Neon Colors */
-  --color-neon-pink: #ff2d55;    /* Primary action color */
-  --color-neon-blue: #2e3cff;    /* Secondary action color */
-  --color-neon-purple: #b829ea;  /* Accent color */
-  --color-neon-cyan: #01fffe;    /* Highlight color */
+## System Architecture
 
-  /* Background Colors */
-  --color-cyber-dark: #0b1021;   /* Main background */
-  --color-cyber-darker: #060810; /* Secondary background */
-  --color-cyber-light: #2a2d3d;  /* Surface background */
+### Frontend Architecture
+- **Framework**: React 18+ with TypeScript
+- **Build Tool**: Vite
+- **State Management**: Zustand
+- **UI Components**: Custom components with Tailwind CSS
+- **PWA Support**: Workbox + Vite PWA Plugin
+- **Testing**: Vitest + Playwright
+
+### Backend Architecture
+- **Platform**: Supabase
+- **Database**: PostgreSQL
+- **Authentication**: Supabase Auth
+- **Storage**: Supabase Storage
+- **Functions**: Edge Functions
+- **API Layer**: REST + GraphQL
+
+### AI Integration
+- **Primary LLM**: OpenAI GPT-4
+- **Purpose**: Resume parsing, job matching, and application optimization
+- **Integration Points**:
+  - Resume analysis
+  - Job description matching
+  - Application customization
+  - Interview preparation
+
+## Core Features
+
+### 1. Resume Management
+```typescript
+interface Resume {
+  id: string;
+  userId: string;
+  content: string;
+  parsedContent: {
+    skills: string[];
+    experience: Experience[];
+    education: Education[];
+  };
+  version: number;
+  createdAt: Date;
 }
 ```
 
-### Typography
+### 2. Job Search
+```typescript
+interface JobSearch {
+  id: string;
+  userId: string;
+  criteria: {
+    keywords: string[];
+    location: string;
+    type: JobType[];
+    salary: SalaryRange;
+  };
+  results: Job[];
+  matchScores: MatchScore[];
+}
+```
 
-1. **Font Families**
-   ```css
-   /* Logo Font */
-   font-family: 'Press Start 2P', monospace;
-   
-   /* Body Text */
-   font-family: system-ui, -apple-system, sans-serif;
-   
-   /* Monospace (Code) */
-   font-family: ui-monospace, monospace;
-   ```
+### 3. Application Tracking
+```typescript
+interface Application {
+  id: string;
+  userId: string;
+  jobId: string;
+  status: ApplicationStatus;
+  customizedResume: string;
+  coverLetter: string;
+  timeline: ApplicationEvent[];
+}
+```
 
-2. **Font Sizes**
-   ```css
-   /* Headings */
-   h1: text-3xl (1.875rem)
-   h2: text-2xl (1.5rem)
-   h3: text-xl (1.25rem)
-   h4: text-lg (1.125rem)
+## Database Schema
 
-   /* Body */
-   base: text-base (1rem)
-   small: text-sm (0.875rem)
-   xs: text-xs (0.75rem)
-   ```
+### Key Tables
+1. **profiles**
+   - User information
+   - Job preferences
+   - Search history
 
-### Component Design
+2. **resumes**
+   - Resume versions
+   - Parsed content
+   - AI analysis results
 
-1. **Cards**
-   ```jsx
-   <div className="bg-cyber-light rounded-lg p-6 border border-neon-pink shadow-neon-glow">
-     <h2 className="text-xl font-semibold text-neon-cyan mb-4">Title</h2>
-     <div className="space-y-4">
-       {/* Content */}
-     </div>
-   </div>
-   ```
+3. **jobs**
+   - Job listings
+   - Match scores
+   - Application status
 
-2. **Buttons**
-   ```jsx
-   /* Primary Button */
-   <button className="px-4 py-2 bg-neon-gradient text-white rounded-md shadow-neon-glow hover:opacity-90">
-     Primary Action
-   </button>
+4. **applications**
+   - Application tracking
+   - Communication history
+   - Status updates
 
-   /* Secondary Button */
-   <button className="px-4 py-2 border border-neon-cyan text-neon-cyan rounded-md hover:bg-cyber-darker">
-     Secondary Action
-   </button>
+## AI Integration Points
 
-   /* Danger Button */
-   <button className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">
-     Danger Action
-   </button>
-   ```
+### 1. Resume Processing
+```typescript
+async function processResume(content: string): Promise<ParsedResume> {
+  // AI analyzes resume content
+  // Extracts skills, experience, education
+  // Provides improvement suggestions
+}
+```
 
-3. **Forms**
-   ```jsx
-   /* Input Field */
-   <input
-     className="w-full px-3 py-2 bg-cyber-darker border rounded-md text-white border-neon-pink focus:border-neon-cyan focus:outline-none"
-     placeholder="Enter text"
-   />
+### 2. Job Matching
+```typescript
+async function matchJobToResume(
+  job: Job,
+  resume: Resume
+): Promise<MatchResult> {
+  // AI compares job requirements with resume
+  // Generates match score and reasons
+  // Suggests resume customizations
+}
+```
 
-   /* Select Field */
-   <select className="w-full px-3 py-2 bg-cyber-darker border rounded-md text-white border-neon-pink focus:border-neon-cyan focus:outline-none">
-     <option>Select option</option>
-   </select>
-   ```
+### 3. Application Optimization
+```typescript
+async function optimizeApplication(
+  job: Job,
+  resume: Resume
+): Promise<OptimizedApplication> {
+  // AI customizes resume for job
+  // Generates cover letter
+  // Provides application tips
+}
+```
 
-4. **Loading States**
-   ```jsx
-   /* Spinner */
-   <Loader2 className="h-5 w-5 animate-spin text-neon-pink" />
+## Development Patterns
 
-   /* Progress Bar */
-   <div className="h-2 bg-cyber-light rounded-full overflow-hidden">
-     <div 
-       className="h-full bg-neon-gradient transition-all duration-500"
-       style={{ width: `${progress}%` }}
-     />
-   </div>
-   ```
+### 1. Error Handling
+```typescript
+// Centralized error handling
+const handleError = async (error: Error) => {
+  logger.error(error);
+  await errorReporting.send(error);
+  showUserFriendlyError(error);
+};
+```
 
-### Animations
+### 2. State Management
+```typescript
+// Zustand store pattern
+interface AppState {
+  user: User | null;
+  jobs: Job[];
+  applications: Application[];
+  actions: {
+    updateUser: (user: User) => void;
+    addJob: (job: Job) => void;
+    updateApplication: (app: Application) => void;
+  };
+}
+```
 
-1. **Transitions**
-   ```css
-   /* Default Transition */
-   transition-all duration-200
+### 3. API Integration
+```typescript
+// Supabase client pattern
+const supabase = createClient(url, key, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true
+  },
+  db: {
+    schema: 'public'
+  }
+});
+```
 
-   /* Color Transitions */
-   hover:text-neon-pink transition-colors
+## Testing Strategy
 
-   /* Transform Transitions */
-   hover:scale-105 transition-transform
-   ```
+### 1. Unit Tests
+- Component testing
+- Business logic validation
+- AI integration mocking
 
-2. **Keyframes**
-   ```css
-   /* Glow Effect */
-   @keyframes glow {
-     0%, 100% { filter: brightness(1); }
-     50% { filter: brightness(1.3); }
-   }
+### 2. Integration Tests
+- API interactions
+- Database operations
+- State management
 
-   /* Pulse Effect */
-   @keyframes pulse {
-     0%, 100% { opacity: 1; }
-     50% { opacity: 0.5; }
-   }
-   ```
+### 3. E2E Tests
+- User flows
+- Application processes
+- System integration
 
-### Layout Guidelines
+## Deployment Architecture
 
-1. **Spacing**
-   ```css
-   /* Consistent spacing scale */
-   space-y-2: 0.5rem (8px)
-   space-y-4: 1rem (16px)
-   space-y-6: 1.5rem (24px)
-   space-y-8: 2rem (32px)
-   ```
+### Development
+```yaml
+version: '3.8'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    environment:
+      - NODE_ENV=development
+      - VITE_SUPABASE_URL=${SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+```
 
-2. **Container Widths**
-   ```css
-   /* Maximum widths */
-   max-w-md: 28rem (448px)
-   max-w-lg: 32rem (512px)
-   max-w-xl: 36rem (576px)
-   max-w-2xl: 42rem (672px)
-   ```
+### Production
+```yaml
+version: '3.8'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    environment:
+      - NODE_ENV=production
+      - VITE_SUPABASE_URL=${SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+```
 
-3. **Grid System**
-   ```jsx
-   /* Basic Grid */
-   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-     {/* Grid items */}
-   </div>
+## Security Considerations
 
-   /* Dashboard Grid */
-   <div className="grid grid-cols-12 gap-6">
-     <div className="col-span-12 lg:col-span-8">
-       {/* Main content */}
-     </div>
-     <div className="col-span-12 lg:col-span-4">
-       {/* Sidebar */}
-     </div>
-   </div>
-   ```
+### 1. Authentication
+- Supabase JWT tokens
+- Role-based access control
+- Session management
 
-### Effects
+### 2. Data Protection
+- End-to-end encryption
+- Secure credential storage
+- API key management
 
-1. **Shadows**
-   ```css
-   /* Neon Glow */
-   shadow-neon-glow: 0 0 20px rgba(255, 45, 85, 0.5)
+### 3. API Security
+- Rate limiting
+- Request validation
+- Error sanitization
 
-   /* Blue Glow */
-   shadow-blue-glow: 0 0 20px rgba(46, 60, 255, 0.5)
-   ```
+## Performance Optimization
 
-2. **Gradients**
-   ```css
-   /* Background Gradients */
-   bg-cyber-gradient: linear-gradient(135deg, var(--color-cyber-dark) 0%, var(--color-cyber-light) 100%)
-   bg-neon-gradient: linear-gradient(135deg, var(--color-neon-pink) 0%, var(--color-neon-purple) 100%)
-   ```
+### 1. Caching Strategy
+```typescript
+// Service worker caching
+registerRoute(
+  ({ request }) => request.destination === 'style',
+  new CacheFirst()
+);
+```
 
-### Responsive Design
+### 2. Code Splitting
+```typescript
+// Dynamic imports
+const Dashboard = lazy(() => import('./components/Dashboard'));
+```
 
-1. **Breakpoints**
-   ```css
-   sm: 640px  /* Mobile landscape */
-   md: 768px  /* Tablets */
-   lg: 1024px /* Laptops */
-   xl: 1280px /* Desktops */
-   2xl: 1536px /* Large screens */
-   ```
+### 3. Database Indexing
+```sql
+CREATE INDEX idx_jobs_match_score ON jobs (match_score);
+CREATE INDEX idx_applications_status ON applications (status);
+```
 
-2. **Mobile-First Approach**
-   ```jsx
-   <div className="
-     p-4 md:p-6 lg:p-8
-     text-sm md:text-base lg:text-lg
-     grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3
-   ">
-     {/* Content */}
-   </div>
-   ```
+## AI Interaction Guidelines
 
-### Accessibility
+### 1. Code Modifications
+- Maintain TypeScript types
+- Follow error handling patterns
+- Update tests accordingly
 
-1. **Focus States**
-   ```css
-   /* Focus Ring */
-   focus:ring-2 focus:ring-neon-pink focus:ring-offset-2 focus:ring-offset-cyber-dark
+### 2. Database Changes
+- Check migration scripts
+- Verify RLS policies
+- Update schemas safely
 
-   /* Focus Visible */
-   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan
-   ```
+### 3. AI Integration
+- Respect rate limits
+- Handle API errors
+- Validate AI responses
 
-2. **Screen Reader**
-   ```jsx
-   /* Hidden Text */
-   <span className="sr-only">Button description</span>
+## Support Resources
 
-   /* Skip Link */
-   <a href="#main" className="sr-only focus:not-sr-only">
-     Skip to main content
-   </a>
-   ```
+### Documentation
+- [API Documentation](./API.md)
+- [Database Schema](./SCHEMA.md)
+- [Testing Guide](./TESTING.md)
 
-### Best Practices
+### Tools
+- GitHub repository
+- Issue tracker
+- CI/CD pipelines
 
-1. **Component Structure**
-   - Use semantic HTML
-   - Maintain consistent spacing
-   - Group related elements
-   - Use proper heading hierarchy
+### Monitoring
+- Error tracking
+- Performance metrics
+- Usage analytics
 
-2. **Color Usage**
-   - Use neon colors sparingly
-   - Maintain sufficient contrast
-   - Consider color blindness
-   - Use gradients for depth
+## Version Control
 
-3. **Animation Guidelines**
-   - Keep animations subtle
-   - Respect reduced-motion
-   - Use consistent timing
-   - Avoid flashy effects
+### Current Version
+- v1.0.0-pwa
+- Tagged releases
+- Semantic versioning
 
-4. **Responsive Design**
-   - Mobile-first approach
-   - Fluid typography
-   - Flexible layouts
-   - Touch-friendly targets
+### Rollback Support
+- Version tags
+- Database migrations
+- Configuration management
