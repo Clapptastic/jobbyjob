@@ -1,120 +1,169 @@
-# ClappCode - AI-Powered Job Application System 🚀
+# JobbyJob 🚀
 
-## Quick Start
+An AI-powered job search assistant that helps you find and apply to jobs efficiently.
+
+## Features ✨
+
+- 🤖 AI-powered job search and matching
+- 📄 Resume parsing and optimization
+- 🔍 Automated job discovery
+- 📊 Application tracking
+- 🔐 Secure credential management
+- 🌐 PWA support with offline capabilities
+
+## Tech Stack 🛠️
+
+- **Frontend**: React + Vite + TypeScript
+- **Backend**: Supabase
+- **AI**: OpenAI GPT-4
+- **Storage**: Supabase Storage
+- **Auth**: Supabase Auth
+- **PWA**: Workbox + Vite PWA Plugin
+- **Testing**: Vitest + Playwright
+- **CI/CD**: GitHub Actions
+
+## Getting Started 🚀
 
 1. **Prerequisites**
-   - Node.js 20+
-   - npm 10+
-   - Docker (optional)
+   - Node.js 18+
+   - npm 9+
+   - Supabase account
+   - OpenAI API key
 
 2. **Installation**
    ```bash
-   # Clone repository
-   git clone <repository-url>
-   cd clappcode
+   # Clone the repository
+   git clone https://github.com/your-username/jobbyjob.git
+   cd jobbyjob
 
    # Install dependencies
    npm install
 
+   # Set up environment variables
+   cp .env.example .env
+   ```
+
+3. **Configuration**
+   ```bash
+   # Configure Supabase
+   npm run setup:supabase
+
+   # Configure OpenAI
+   npm run setup:ai
+   ```
+
+4. **Development**
+   ```bash
    # Start development server
    npm run dev
    ```
 
-3. **Configuration**
-   - Click "Connect to Supabase" in the app
-   - Enter your Supabase credentials:
-     - Project URL (format: `https://<project>.supabase.co`)
-     - Anon/Public key (starts with `eyJ`)
-   - Configure API keys:
-     - OpenAI API key (Required, starts with `sk-`)
-     - Affinda API key (Optional, 64-character string)
+## Docker Support 🐳
 
-## Features
+1. **Development**
+   ```bash
+   docker-compose -f docker-compose.dev.yml up
+   ```
 
-- 🤖 AI-powered resume parsing and job matching
-- 📝 Multi-resume management with version history
-- 🔍 Automated job search using Open Resume integration
-- 📊 Application tracking and analytics
-- 📧 Email notifications for updates
-- 🔐 Secure file storage
-- 🎨 Beautiful cyberpunk-inspired UI
+2. **Production**
+   ```bash
+   docker-compose -f docker-compose.prod.yml up
+   ```
 
-## Development
+## PWA Features 📱
+
+- Offline support
+- Background sync
+- Push notifications
+- Installable app
+- Automatic updates
+
+### Service Worker Configuration
+
+```typescript
+// Cache static assets
+registerRoute(
+  ({ request }) => {
+    return request.destination === 'style' ||
+           request.destination === 'script' ||
+           request.destination === 'image';
+  },
+  new StaleWhileRevalidate({
+    cacheName: 'static-resources'
+  })
+);
+
+// Handle API requests
+registerRoute(
+  ({ url }) => url.hostname.includes('supabase'),
+  new NetworkOnly()
+);
+```
+
+## Database Connection 🗄️
+
+```typescript
+// Initialize Supabase client
+const supabase = createClient(url, key, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  db: {
+    schema: 'public'
+  }
+});
+
+// Health check
+const checkHealth = async () => {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .select('count')
+      .limit(1)
+      .single();
+    return !error;
+  } catch (err) {
+    return false;
+  }
+};
+```
+
+## Testing 🧪
 
 ```bash
-# Start development server
-npm run dev
+# Unit tests
+npm run test
 
-# Run all tests
-npm test
-
-# Run E2E tests
+# E2E tests
 npm run test:e2e
 
-# Run integration tests
-npm run test:integration
-
-# Lint code
-npm run lint
+# Component tests
+npm run test:components
 ```
 
-## Testing
+## Contributing 🤝
 
-The application includes comprehensive testing:
-- Unit tests with Vitest
-- Integration tests for API interactions
-- E2E tests with Playwright
-- Performance monitoring and error tracking
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a pull request
 
-## Docker Support
+## Documentation 📚
 
-### Development
-```bash
-docker-compose -f docker-compose.dev.yml up
-```
+- [Getting Started](./GETTING_STARTED.md)
+- [Supabase Setup](./SUPABASE.md)
+- [API Documentation](./API.md)
+- [Troubleshooting](./TROUBLESHOOTING.md)
 
-### Testing
-```bash
-docker-compose -f docker-compose.test.yml up
-```
+## License 📄
 
-### Production
-```bash
-docker-compose -f docker-compose.prod.yml up
-```
+MIT License - see [LICENSE](./LICENSE) for details
 
-## API Integration
+## Support 💬
 
-### Required APIs
-1. **OpenAI API**
-   - Required for AI features
-   - Must start with `sk-`
-   - Configure in API Keys section
-
-2. **Affinda API (Optional)**
-   - Enhanced resume parsing
-   - 64-character key format
-   - Configure in API Keys section
-
-### Job Search Integration
-- Integrated with Open Resume API
-- Supports multiple job boards
-- Real-time job matching
-- Automated application tracking
-
-## Documentation
-
-- [Installation Guide](INSTALL.md)
-- [API Reference](API.md)
-- [Contributing Guide](CONTRIBUTING.md)
-- [Deployment Guide](DEPLOYMENT.md)
-
-## Support
-
-- [Issue Tracker](https://github.com/your-repo/issues)
-- [Documentation](docs/)
-- [Discord Community](https://discord.gg/your-server)
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details
+- [GitHub Issues](https://github.com/your-username/jobbyjob/issues)
+- [Discord Server](https://discord.gg/your-server)
+- [Documentation](https://your-docs-site.com)

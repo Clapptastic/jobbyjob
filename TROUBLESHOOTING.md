@@ -1,149 +1,179 @@
 # Troubleshooting Guide 🔧
 
-## Database Connection Issues
+## Common Issues
 
-### Invalid Credentials Format
-```
-Error: Invalid credentials format
-```
-**Solution:**
-1. Check URL format:
-   - Must be `https://<project>.supabase.co`
-   - Copy directly from Supabase dashboard
-2. Check key formats:
-   - Anon key must start with `eyJ`
-   - Service role key must start with `eyJ`
-3. In development:
-   - Clear localStorage
-   - Re-enter credentials in SecretsManager
+### Supabase Connection Issues
 
-### Connection Failed
-```
-Error: Failed to connect to Supabase
-```
-**Solution:**
-1. Verify project status in dashboard
-2. Check network connection
-3. Try connection test:
-   ```bash
-   npm run verify
+1. **Health Check Failures**
    ```
-
-## API Integration Issues
-
-### OpenAI API
-```
-Error: Failed to parse resume with OpenAI
-```
-**Solution:**
-1. Verify API key format (starts with `sk-`)
-2. Check API quota
-3. Monitor rate limits
-4. Ensure valid file content
-
-### Affinda API
-```
-Error: Failed to parse resume with Affinda
-```
-**Solution:**
-1. Verify API key (64-character string)
-2. Check file format support
-3. Monitor API rate limits
-4. Check network connectivity
-
-## Storage Issues
-
-### Upload Failed
-```
-Error: Failed to upload file
-```
-**Solution:**
-1. Check file size limits:
-   - Resumes: 5MB max
-   - Avatars: 2MB max
-2. Verify file types:
-   - Resumes: PDF, DOC, DOCX
-   - Avatars: JPG, PNG, GIF
-3. Check storage permissions
-
-### Bucket Not Found
-```
-Error: Storage bucket not found
-```
-**Solution:**
-1. Enable storage service
-2. Create required buckets:
-   ```sql
-   insert into storage.buckets (id, name, public)
-   values ('resumes', 'resumes', false),
-          ('avatars', 'avatars', true);
+   workbox Precaching did not find a match for /@vite/client
    ```
-3. Verify bucket configuration
+   - This is expected in development mode
+   - The service worker is configured to handle these requests
+   - No action needed
 
-## Development Issues
-
-### Local Storage
-```
-Error: Failed to store credentials
-```
-**Solution:**
-1. Clear browser storage:
-   ```javascript
-   localStorage.clear();
+2. **404 on _health Endpoint**
    ```
-2. Reload application
-3. Re-enter credentials
-
-### Build Errors
-```
-Error: Build failed
-```
-**Solution:**
-1. Clear dependencies:
-   ```bash
-   rm -rf node_modules
-   npm install
+   GET https://[project].supabase.co/rest/v1/_health 404 (Not Found)
    ```
-2. Check TypeScript errors:
-   ```bash
-   npm run typecheck
-   ```
-3. Verify environment variables
+   - This is expected behavior
+   - The application uses a custom health check query instead
+   - No action needed
 
-## Testing Issues
-
-### Test Failures
-```
-Error: Test suite failed
-```
-**Solution:**
-1. Check test environment:
-   ```bash
-   npm run test:environment
+3. **Multiple Client Instances**
    ```
-2. Update test credentials
-3. Verify database state
-
-### E2E Test Failures
-```
-Error: Playwright test failed
-```
-**Solution:**
-1. Install browsers:
-   ```bash
-   npx playwright install
+   Multiple GoTrueClient instances detected
    ```
-2. Update test config
-3. Check test user credentials
+   - This warning can be safely ignored in development
+   - The application handles client initialization properly
+   - No action needed
+
+### Database Connection
+
+1. **Connection Failed**
+   ```typescript
+   // Check connection status
+   const isConnected = await checkConnection(3);
+   if (!isConnected) {
+     // Handle connection failure
+   }
+   ```
+   - Verify environment variables
+   - Check network connectivity
+   - Ensure Supabase project is active
+
+2. **Invalid Credentials**
+   ```typescript
+   // Validate credentials
+   const issues = verifyCredentialsFormat(url, anonKey);
+   if (issues.length > 0) {
+     // Handle invalid credentials
+   }
+   ```
+   - Check URL format
+   - Verify key format
+   - Update credentials if needed
+
+### Development Mode
+
+1. **Local Storage Issues**
+   - Clear browser storage:
+     ```typescript
+     localStorage.removeItem('sb-refresh-token');
+     localStorage.removeItem('sb-access-token');
+     localStorage.removeItem('supabase.auth.token');
+     ```
+   - Reinitialize client:
+     ```typescript
+     await reinitialize();
+     ```
+
+2. **Docker Mode**
+   - Environment variables only
+   - No local storage used
+   - Check docker-compose files
+
+## Performance Issues
+
+### Service Worker
+
+1. **Cache Configuration**
+   ```typescript
+   // Cache static assets
+   registerRoute(
+     ({ request }) => {
+       return request.destination === 'style' ||
+              request.destination === 'script' ||
+              request.destination === 'image';
+     },
+     new StaleWhileRevalidate({
+       cacheName: 'static-resources'
+     })
+   );
+   ```
+   - Check cache configuration
+   - Monitor cache size
+   - Clear cache if needed
+
+2. **API Requests**
+   ```typescript
+   // Don't cache Supabase requests
+   registerRoute(
+     ({ url }) => url.hostname.includes('supabase'),
+     new NetworkOnly()
+   );
+   ```
+   - Verify routing patterns
+   - Check network requests
+   - Monitor API usage
+
+## Security Issues
+
+### Authentication
+
+1. **Token Management**
+   ```typescript
+   const client = createClient(url, key, {
+     auth: {
+       autoRefreshToken: true,
+       persistSession: true,
+       detectSessionInUrl: true
+     }
+   });
+   ```
+   - Check token expiration
+   - Verify refresh token flow
+   - Monitor auth state
+
+2. **Permissions**
+   - Verify RLS policies
+   - Check role assignments
+   - Monitor access patterns
+
+## Monitoring
+
+### Health Checks
+
+1. **Database Health**
+   ```typescript
+   export const checkHealth = async () => {
+     try {
+       const { error } = await supabase
+         .from('profiles')
+         .select('count')
+         .limit(1)
+         .single();
+       return !error;
+     } catch (err) {
+       return false;
+     }
+   };
+   ```
+   - Monitor success rate
+   - Check error patterns
+   - Set up alerts
+
+2. **Error Logging**
+   ```typescript
+   log.error('Health check failed:', error);
+   ```
+   - Review error logs
+   - Track error frequency
+   - Set up notifications
 
 ## Support Resources
 
-### Documentation
-- [Supabase Docs](https://supabase.com/docs)
-- [OpenAI API](https://platform.openai.com/docs)
-- [Affinda API](https://docs.affinda.com)
+1. **Documentation**
+   - [Supabase Docs](https://supabase.com/docs)
+   - [Workbox Docs](https://developers.google.com/web/tools/workbox)
+   - Project README
 
-### Community
-- GitHub Issues
-- Discord Server
-- Stack Overflow
+2. **Community**
+   - GitHub Issues
+   - Discord Server
+   - Stack Overflow
+
+3. **Tools**
+   - Browser DevTools
+   - Supabase Dashboard
+   - Logging System

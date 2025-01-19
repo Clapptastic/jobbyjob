@@ -22,6 +22,45 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key # Optional, for setup only
 ```
 
+### Client Configuration
+```typescript
+// src/lib/supabaseClient.ts
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  db: {
+    schema: 'public'
+  },
+  global: {
+    headers: {
+      'x-client-info': 'jobbyjob@1.0.0'
+    }
+  }
+});
+```
+
+### Health Checks
+The application uses a simple query to check database connectivity:
+```typescript
+export const checkHealth = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('count')
+      .limit(1)
+      .single();
+    
+    return !error;
+  } catch (err) {
+    log.error('Health check failed:', err);
+    return false;
+  }
+};
+```
+
 ### Credential Storage
 - Development mode:
   - Credentials stored in localStorage
@@ -30,6 +69,9 @@ VITE_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key # Optional, for setup only
 - Production mode:
   - Uses environment variables
   - No local storage
+- Docker mode:
+  - Only uses environment variables
+  - Enhanced security for containerized deployments
 
 ### Connection Validation
 ```typescript
@@ -40,9 +82,9 @@ if (issues.length > 0) {
 }
 
 // Test connection with retries
-const isConnected = await checkConnection();
+const isConnected = await checkConnection(3);
 if (!isConnected) {
-  throw new Error('Failed to connect to Supabase');
+  throw new Error('Failed to connect to database');
 }
 ```
 
@@ -116,36 +158,52 @@ create table public.api_keys (
 
 ### Common Issues
 1. **Invalid Credentials**
-   - URL must be `https://<project>.supabase.co`
-   - Keys must start with `eyJ`
-   - Check dashboard for correct values
+   - Check URL format (must be `https://<project>.supabase.co`)
+   - Verify key format (must start with `eyJ`)
+   - Ensure credentials are not placeholder values
 
-2. **Connection Failed**
-   - Verify project status
-   - Check network connection
-   - Try connection test
+2. **Connection Issues**
+   - Check network connectivity
+   - Verify project status in Supabase dashboard
+   - Check for rate limiting or IP restrictions
 
-3. **Storage Issues**
-   - Enable storage service
-   - Verify bucket configuration
-   - Check permissions
+3. **Authentication Issues**
+   - Clear local storage cache if needed
+   - Check token expiration
+   - Verify auth configuration
+
+### Troubleshooting Steps
+1. **Client Initialization**
+   - Verify environment variables
+   - Check credential format
+   - Monitor initialization logs
+
+2. **Connection Issues**
+   - Check network connectivity
+   - Verify Supabase project status
+   - Review error logs
+
+3. **Data Access**
+   - Verify table permissions
+   - Check RLS policies
+   - Monitor query performance
 
 ## Best Practices
 
 1. **Security**
-   - Never commit credentials
-   - Rotate service role key regularly
-   - Use RLS policies
+   - Never expose service role key in client
+   - Use RLS policies for data access
+   - Implement proper auth flows
 
-2. **Development**
-   - Use local storage in dev mode
-   - Clear invalid credentials
-   - Handle connection retries
-
-3. **Testing**
-   - Validate schema regularly
-   - Test permissions
+2. **Performance**
+   - Use connection pooling
+   - Implement query caching
    - Monitor API usage
+
+3. **Maintenance**
+   - Regular health checks
+   - Monitor error rates
+   - Keep dependencies updated
 
 ## Support
 
