@@ -1,0 +1,3 @@
+[submodule "open-resume-lib"]
+	path = open-resume-lib
+	url = https://github.com/Clapptastic/open-resume-lib.git
