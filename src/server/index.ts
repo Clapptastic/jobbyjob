@@ -1,31 +1,36 @@
 import express from 'express';
 import cors from 'cors';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import saveEnvRouter from './api/save-env.js';
-import logger from '../lib/logger.js';
+import { createLogger } from '../lib/logger.js';
+import { saveEnvRouter } from './routes/env.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const log = logger('Server');
+const log = createLogger('Server');
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+}));
 app.use(express.json());
+
+// Health check endpoint
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
 
 // Routes
 app.use('/api', saveEnvRouter);
 
 // Error handling
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err, _req, res, _next) => {
   log.error('Server error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
 
 // Start server
-app.listen(port, () => {
+const server = app.listen(port, () => {
   log.info(`Server running on port ${port}`);
-}); 
+});
+
+export { app, server }; 

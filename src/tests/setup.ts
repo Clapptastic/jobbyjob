@@ -2,6 +2,17 @@ import { expect, afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import * as matchers from '@testing-library/jest-dom/matchers';
+import { JSDOM } from 'jsdom';
+
+// Set up JSDOM
+const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+  url: 'http://localhost',
+  pretendToBeVisual: true,
+});
+
+global.window = dom.window;
+global.document = dom.window.document;
+global.navigator = dom.window.navigator;
 
 // Extend Vitest's expect method with testing-library methods
 expect.extend(matchers);
@@ -10,11 +21,13 @@ expect.extend(matchers);
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  document.body.innerHTML = '';
 });
 
-// Create window mock
-const windowMock = {
-  matchMedia: vi.fn().mockImplementation(query => ({
+// Mock window properties
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation(query => ({
     matches: false,
     media: query,
     onchange: null,
@@ -24,84 +37,18 @@ const windowMock = {
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })),
-  ResizeObserver: vi.fn().mockImplementation(() => ({
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-    disconnect: vi.fn(),
-  })),
-  localStorage: {
-    getItem: vi.fn(),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
-    length: 0,
-    key: vi.fn(),
-  },
-  location: {
-    href: 'http://localhost:5173',
-    origin: 'http://localhost:5173',
-    pathname: '/',
-    search: '',
-    hash: '',
-  },
-  navigator: {
-    userAgent: 'test-agent',
-    onLine: true,
-    clipboard: {
-      writeText: vi.fn(),
-    },
-  },
-  crypto: {
-    randomUUID: vi.fn(() => '123e4567-e89b-12d3-a456-426614174000'),
-  },
-  document: {
-    createElement: vi.fn((tag) => ({
-      setAttribute: vi.fn(),
-      style: {},
-      appendChild: vi.fn(),
-      removeChild: vi.fn(),
-      getElementsByTagName: vi.fn(() => []),
-      querySelector: vi.fn(),
-      querySelectorAll: vi.fn(() => []),
-      textContent: '',
-      className: '',
-      id: '',
-      tagName: tag.toUpperCase(),
-      children: [],
-      parentNode: null,
-      remove: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-      getBoundingClientRect: vi.fn(() => ({
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-        width: 0,
-        height: 0,
-      })),
-    })),
-    head: {
-      appendChild: vi.fn(),
-      removeChild: vi.fn(),
-    },
-    body: {
-      appendChild: vi.fn(),
-      removeChild: vi.fn(),
-    },
-    createTextNode: vi.fn(() => ({
-      textContent: '',
-    })),
-  },
-};
+});
 
-// Set up global mocks
-vi.stubGlobal('window', windowMock);
-vi.stubGlobal('document', windowMock.document);
-vi.stubGlobal('navigator', windowMock.navigator);
-vi.stubGlobal('localStorage', windowMock.localStorage);
-vi.stubGlobal('crypto', windowMock.crypto);
+// Mock localStorage
+const localStorageMock = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  clear: vi.fn(),
+  removeItem: vi.fn(),
+  length: 0,
+  key: vi.fn()
+};
+Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
 // Mock File
 class MockFile {
@@ -122,7 +69,7 @@ class MockFile {
   }
 }
 
-vi.stubGlobal('File', MockFile);
+global.File = MockFile as any;
 
 // Mock Supabase
 vi.mock('@supabase/supabase-js', () => ({
@@ -181,32 +128,6 @@ vi.mock('react-hot-toast', () => ({
     success: vi.fn()
   }
 }));
-
-// Mock window
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: vi.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
-});
-
-// Mock localStorage
-const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  clear: vi.fn(),
-  removeItem: vi.fn(),
-  length: 0,
-  key: vi.fn()
-};
-Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
 // Mock crypto
 Object.defineProperty(window, 'crypto', {

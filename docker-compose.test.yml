@@ -5,14 +5,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test
+    volumes:
+      - .:/app:delegated
+      - test_node_modules:/app/node_modules
+      - test_npm_cache:/home/appuser/.npm
+      - playwright-report:/app/playwright-report
+      - test-results:/app/test-results
     environment:
       - NODE_ENV=test
-      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
-      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
-      - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY}
-      - TEST_USER_EMAIL=${TEST_USER_EMAIL}
-      - TEST_USER_PASSWORD=${TEST_USER_PASSWORD}
-    volumes:
-      - ./playwright-report:/app/playwright-report
-      - ./test-results:/app/test-results
+      - PLAYWRIGHT_BROWSERS_PATH=/home/appuser/.cache/ms-playwright
     command: npm run test:ci
+    user: "1001:1001"
+
+volumes:
+  test_node_modules:
+  test_npm_cache:
+  playwright-report:
+  test-results:

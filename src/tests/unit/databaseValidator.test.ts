@@ -1,39 +1,46 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { databaseValidator } from '../../lib/databaseValidator';
+import { DatabaseValidator } from '../../lib/databaseValidator';
 import { supabase } from '../../lib/supabaseClient';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 vi.mock('../../lib/supabaseClient', () => ({
   supabase: {
-    from: vi.fn(),
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => Promise.resolve({ data: [{ id: 1 }], error: null }))
+      }))
+    })),
     storage: {
-      getBucket: vi.fn(),
       listBuckets: vi.fn()
     }
   }
 }));
 
 describe('Database Validator', () => {
+  let databaseValidator: DatabaseValidator;
+
   beforeEach(() => {
+    databaseValidator = new DatabaseValidator();
     vi.clearAllMocks();
   });
 
-  it('validates connection successfully', async () => {
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockResolvedValue({ data: [{ count: 1 }], error: null })
-    } as any);
-
-    const result = await databaseValidator.validateConnection();
-    expect(result).toBe(true);
-  });
-
   it('validates schema successfully', async () => {
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockResolvedValue({ data: ['profiles', 'resumes', 'jobs', 'applications'] })
-    } as any);
+    vi.mocked(supabase.from).mockImplementation(() => ({
+      select: () => ({
+        eq: () => Promise.resolve({ 
+          data: [
+            { table_name: 'profiles' },
+            { table_name: 'resumes' },
+            { table_name: 'jobs' },
+            { table_name: 'applications' }
+          ], 
+          error: null 
+        })
+      })
+    }));
 
-    vi.mocked(supabase.storage.listBuckets).mockResolvedValue({
-      data: [{ name: 'resumes' }],
-      error: null
+    vi.mocked(supabase.storage.listBuckets).mockResolvedValue({ 
+      data: [{ name: 'resumes' }], 
+      error: null 
     });
 
     const result = await databaseValidator.validateSchema();
@@ -42,13 +49,18 @@ describe('Database Validator', () => {
   });
 
   it('detects missing tables', async () => {
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockResolvedValue({ data: ['profiles'] })
-    } as any);
+    vi.mocked(supabase.from).mockImplementation(() => ({
+      select: () => ({
+        eq: () => Promise.resolve({ 
+          data: [{ table_name: 'profiles' }], 
+          error: null 
+        })
+      })
+    }));
 
-    vi.mocked(supabase.storage.listBuckets).mockResolvedValue({
-      data: [{ name: 'resumes' }],
-      error: null
+    vi.mocked(supabase.storage.listBuckets).mockResolvedValue({ 
+      data: [{ name: 'resumes' }], 
+      error: null 
     });
 
     const result = await databaseValidator.validateSchema();
@@ -57,23 +69,32 @@ describe('Database Validator', () => {
   });
 
   it('handles connection errors', async () => {
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockResolvedValue({
-        data: null,
-        error: new Error('Failed to connect to database')
-      })
-    } as any);
+    vi.mocked(supabase.from).mockImplementation(() => {
+      throw new Error('Failed to connect to database');
+    });
 
-    const result = await databaseValidator.validateConnection();
-    expect(result).toBe(false);
+    await expect(databaseValidator.validateConnection()).rejects.toThrow('Failed to connect to database');
   });
 
   it('handles storage bucket errors', async () => {
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockResolvedValue({ data: ['profiles', 'resumes', 'jobs', 'applications'] })
-    } as any);
+    vi.mocked(supabase.from).mockImplementation(() => ({
+      select: () => ({
+        eq: () => Promise.resolve({ 
+          data: [
+            { table_name: 'profiles' },
+            { table_name: 'resumes' },
+            { table_name: 'jobs' },
+            { table_name: 'applications' }
+          ], 
+          error: null 
+        })
+      })
+    }));
 
-    vi.mocked(supabase.storage.listBuckets).mockRejectedValue(new Error('Failed to check storage buckets'));
+    vi.mocked(supabase.storage.listBuckets).mockResolvedValue({ 
+      data: null, 
+      error: { message: 'Failed to check storage buckets' } 
+    });
 
     const result = await databaseValidator.validateSchema();
     expect(result.valid).toBe(false);

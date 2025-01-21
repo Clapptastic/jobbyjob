@@ -3,20 +3,34 @@ import createLogger from './logger';
 
 const log = createLogger('SupabaseClient');
 
+// Get environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Validate environment variables
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase credentials');
+  log.error('Missing required environment variables');
+  throw new Error('Missing Supabase credentials. Please check your environment variables.');
 }
 
-log.info('Getting credentials in Docker mode:', {
-  url: supabaseUrl.slice(0, 15) + '...',
-  anonKey: 'provided',
-  serviceKey: 'provided'
-});
+// Validate URL format
+try {
+  new URL(supabaseUrl);
+  if (!supabaseUrl.includes('supabase.co')) {
+    throw new Error('Invalid Supabase URL format');
+  }
+} catch (error) {
+  log.error('Invalid Supabase URL:', error);
+  throw new Error('Invalid Supabase URL format. Please check your configuration.');
+}
 
-log.info('Creating Supabase client with URL:', supabaseUrl);
+// Validate anon key format
+if (!supabaseAnonKey.startsWith('eyJ')) {
+  log.error('Invalid anon key format');
+  throw new Error('Invalid Supabase anon key format. Please check your configuration.');
+}
+
+log.info('Initializing Supabase client with URL:', supabaseUrl.slice(0, 20) + '...');
 
 // Create a single client instance with proper configuration
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -35,18 +49,32 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-// Export a health check function that uses a simple query instead of _health
+// Improved health check function that verifies both auth and database connection
 export const checkHealth = async () => {
   try {
-    const { data, error } = await supabase
+    // Check database connection
+    const { data: dbCheck, error: dbError } = await supabase
       .from('profiles')
-      .select('count')
-      .limit(1)
-      .single();
+      .select('id')
+      .limit(1);
     
-    return !error;
+    if (dbError) {
+      log.error('Database health check failed:', dbError);
+      return false;
+    }
+
+    // Check auth service
+    const { data: authCheck, error: authError } = await supabase.auth.getSession();
+    
+    if (authError) {
+      log.error('Auth health check failed:', authError);
+      return false;
+    }
+
+    log.info('Health check passed successfully');
+    return true;
   } catch (err) {
-    log.error('Health check failed:', err);
+    log.error('Health check failed with exception:', err);
     return false;
   }
 };

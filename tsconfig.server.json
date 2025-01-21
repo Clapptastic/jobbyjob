@@ -2,19 +2,19 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "node",
+    "outDir": "dist",
     "target": "ESNext",
-    "outDir": "dist/server",
-    "esModuleInterop": true,
-    "allowJs": true,
-    "resolveJsonModule": true,
     "isolatedModules": true,
-    "types": ["node"]
+    "noEmit": false,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
-  "ts-node": {
-    "esm": true,
-    "experimentalSpecifierResolution": "node"
-  },
-  "include": ["src/server/**/*", "src/lib/**/*"],
+  "include": ["src/server/**/*"],
   "exclude": ["node_modules"]
 } 

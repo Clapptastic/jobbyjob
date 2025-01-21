@@ -113,7 +113,7 @@ export { supabaseClient as supabase };
 export const checkConnection = async (retries = 3): Promise<boolean> => {
   try {
     if (!supabase) {
-      log.error('Database client not initialized - please configure credentials first');
+      log.error('Database client not initialized');
       return false;
     }
 
@@ -125,7 +125,7 @@ export const checkConnection = async (retries = 3): Promise<boolean> => {
           return true;
         }
 
-        // Wait before retrying
+        // Wait before retrying with exponential backoff
         if (i < retries - 1) {
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
         }
@@ -230,4 +230,21 @@ export const reinitialize = () => {
   log.info('Successfully reinitialized Supabase client');
   supabaseClient = newClient;
   return newClient;
+};
+
+// Function to clear auth state and cached data
+export const clearAuthState = () => {
+  const isDocker = import.meta.env.VITE_DOCKER === 'true';
+  
+  if (!isDocker) {
+    // Clear all Supabase-related cache
+    localStorage.removeItem('sb-refresh-token');
+    localStorage.removeItem('sb-access-token');
+    localStorage.removeItem('supabase.auth.token');
+    
+    // Clear any cached data
+    localStorage.removeItem('parsedResume');
+    localStorage.removeItem('jobPreferences');
+    localStorage.removeItem('lastSearch');
+  }
 };

@@ -102,13 +102,13 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3000,
+    port: 5173,
     host: true,
     strictPort: true,
     hmr: {
       host: 'localhost',
-      port: 3000,
-      clientPort: 3000
+      port: 5173,
+      clientPort: 5173
     },
     watch: {
       usePolling: true,

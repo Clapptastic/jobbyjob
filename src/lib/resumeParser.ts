@@ -1,127 +1,116 @@
 import { supabase } from './supabase';
 import { toast } from 'react-hot-toast';
 import logger from './logger';
+import axios from 'axios';
 
 const log = logger('ResumeParser');
 
-interface ParsedResume {
-  skills: string[];
-  experience: Array<{
-    title: string;
+const OPEN_RESUME_URL = process.env.NODE_ENV === 'development' 
+  ? 'http://open-resume:3000'
+  : process.env.VITE_OPEN_RESUME_URL;
+
+export interface ParsedResume {
+  basics: {
+    name: string;
+    email: string;
+    phone?: string;
+    location?: string;
+    summary?: string;
+  };
+  work: Array<{
     company: string;
-    duration: string;
-    description: string;
+    position: string;
+    startDate: string;
+    endDate?: string;
+    highlights: string[];
   }>;
   education: Array<{
-    degree: string;
-    school: string;
-    year: string;
+    institution: string;
+    area: string;
+    studyType: string;
+    startDate: string;
+    endDate?: string;
+  }>;
+  skills: Array<{
+    name: string;
+    level?: string;
+    keywords?: string[];
   }>;
 }
 
-export const resumeParser = {
-  async parse(text: string): Promise<ParsedResume> {
+export class ResumeParserService {
+  private static instance: ResumeParserService;
+
+  private constructor() {}
+
+  public static getInstance(): ResumeParserService {
+    if (!ResumeParserService.instance) {
+      ResumeParserService.instance = new ResumeParserService();
+    }
+    return ResumeParserService.instance;
+  }
+
+  async parseResume(file: File): Promise<ParsedResume> {
     try {
-      // First try Affinda
-      const { data: affindaKey, error: affindaError } = await supabase
-        .from('api_keys')
-        .select('key_value')
-        .eq('provider', 'affinda')
-        .eq('is_active', true)
-        .single();
-
-      if (!affindaError && affindaKey?.key_value) {
-        try {
-          log.info('Using Affinda for resume parsing');
-          
-          // Create FormData with file
-          const formData = new FormData();
-          formData.append('file', new Blob([text], { type: 'text/plain' }));
-          formData.append('wait', 'true');
-
-          // Call Affinda API
-          const response = await fetch('https://api.affinda.com/v3/resumes', {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'Authorization': `Bearer ${affindaKey.key_value}`
-            },
-            body: formData
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Affinda API error');
-          }
-
-          const data = await response.json();
-          
-          // Transform Affinda response to our format
-          return {
-            skills: data.data.skills?.map((s: any) => s.name) || [],
-            experience: data.data.workExperience?.map((exp: any) => ({
-              title: exp.jobTitle || '',
-              company: exp.organization || '',
-              duration: `${exp.startDate || ''} - ${exp.endDate || ''}`,
-              description: exp.jobDescription || ''
-            })) || [],
-            education: data.data.education?.map((edu: any) => ({
-              degree: edu.accreditation?.education || '',
-              school: edu.organization || '',
-              year: edu.dates?.completionDate?.split('-')[0] || ''
-            })) || []
-          };
-        } catch (error) {
-          log.warn('Affinda parsing failed, falling back to OpenAI:', error);
-        }
-      }
-
-      // Fallback to OpenAI
-      log.info('Using OpenAI for resume parsing');
+      logger.info('Sending resume to OpenResume parser');
       
-      const { data: openaiKey, error: openaiError } = await supabase
-        .from('api_keys')
-        .select('key_value')
-        .eq('provider', 'openai')
-        .eq('is_active', true)
-        .single();
+      const formData = new FormData();
+      formData.append('resume', file);
 
-      if (openaiError || !openaiKey?.key_value) {
-        throw new Error('No resume parsing service configured. Please configure either Affinda or OpenAI API key.');
-      }
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
+      const response = await axios.post(`${OPEN_RESUME_URL}/api/parse`, formData, {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiKey.key_value}`
+          'Content-Type': 'multipart/form-data',
         },
-        body: JSON.stringify({
-          model: 'gpt-4',
-          messages: [
-            {
-              role: 'system',
-              content: 'Parse the resume text into structured data. Return valid JSON with skills (array of strings), experience (array of objects with title, company, duration, description), and education (array of objects with degree, school, year).'
-            },
-            {
-              role: 'user',
-              content: text
-            }
-          ],
-          response_format: { type: "json_object" }
-        })
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'OpenAI API error');
+      if (response.data.error) {
+        throw new Error(response.data.error);
       }
 
-      const data = await response.json();
-      return JSON.parse(data.choices[0].message.content);
-    } catch (error: any) {
-      log.error('Resume parsing failed:', error);
-      throw error;
+      logger.info('Resume parsed successfully');
+      return response.data;
+    } catch (error) {
+      logger.error('Failed to parse resume:', error);
+      throw new Error('Failed to parse resume. Please try again.');
     }
   }
-};
+
+  async validateResume(parsedResume: ParsedResume): Promise<boolean> {
+    try {
+      logger.info('Validating parsed resume');
+      
+      const response = await axios.post(`${OPEN_RESUME_URL}/api/validate`, parsedResume);
+
+      if (response.data.error) {
+        throw new Error(response.data.error);
+      }
+
+      logger.info('Resume validation successful');
+      return response.data.valid;
+    } catch (error) {
+      logger.error('Resume validation failed:', error);
+      throw new Error('Failed to validate resume. Please check the format.');
+    }
+  }
+
+  async generateATS(parsedResume: ParsedResume, jobDescription: string): Promise<string> {
+    try {
+      logger.info('Generating ATS-friendly version');
+      
+      const response = await axios.post(`${OPEN_RESUME_URL}/api/optimize`, {
+        resume: parsedResume,
+        jobDescription
+      });
+
+      if (response.data.error) {
+        throw new Error(response.data.error);
+      }
+
+      logger.info('ATS version generated successfully');
+      return response.data.optimizedResume;
+    } catch (error) {
+      logger.error('Failed to generate ATS version:', error);
+      throw new Error('Failed to generate ATS version. Please try again.');
+    }
+  }
+}

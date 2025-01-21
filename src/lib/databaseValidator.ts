@@ -7,17 +7,16 @@ const REQUIRED_TABLES = ['profiles', 'resumes', 'jobs', 'applications'];
 const REQUIRED_BUCKETS = ['resumes'];
 
 export class DatabaseValidator {
-  async validateConnection(): Promise<boolean> {
+  async validateConnection(): Promise<void> {
     try {
-      const { data, error } = await supabase.from('profiles').select('count');
+      const { data, error } = await supabase.from('profiles').select('id').limit(1);
       if (error) {
-        log.error('Connection validation failed:', error);
-        return false;
+        throw error;
       }
-      return true;
+      return;
     } catch (error) {
       log.error('Connection validation failed:', error);
-      return false;
+      throw error;
     }
   }
 
@@ -26,46 +25,45 @@ export class DatabaseValidator {
 
     try {
       // Check tables
-      const { data: tables, error: tablesError } = await supabase.from('information_schema.tables')
+      const { data: tables, error: tablesError } = await supabase
+        .from('information_schema.tables')
         .select('table_name')
         .eq('table_schema', 'public');
 
       if (tablesError) {
-        throw new Error('Failed to fetch tables');
+        throw tablesError;
       }
 
       const tableNames = tables.map(t => t.table_name);
-      const missingTables = REQUIRED_TABLES.filter(table => !tableNames.includes(table));
+      const missingTables = REQUIRED_TABLES.filter(t => !tableNames.includes(t));
 
       if (missingTables.length > 0) {
         errors.push(`Missing required tables: ${missingTables.join(', ')}`);
       }
 
       // Check storage buckets
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      
-      if (bucketsError) {
-        throw new Error('Failed to check storage buckets');
+      const { data: buckets, error } = await supabase.storage.listBuckets();
+      if (error) {
+        errors.push(`Failed to check storage buckets: ${error.message}`);
+        return { valid: false, errors };
       }
 
       const bucketNames = buckets.map(b => b.name);
-      const missingBuckets = REQUIRED_BUCKETS.filter(bucket => !bucketNames.includes(bucket));
+      const missingBuckets = REQUIRED_BUCKETS.filter(b => !bucketNames.includes(b));
 
       if (missingBuckets.length > 0) {
-        errors.push(`Missing required buckets: ${missingBuckets.join(', ')}`);
+        errors.push(`Missing required storage buckets: ${missingBuckets.join(', ')}`);
       }
 
-      return {
-        valid: errors.length === 0,
-        errors
-      };
     } catch (error) {
       log.error('Schema validation error:', error);
-      return {
-        valid: false,
-        errors: [(error as Error).message]
-      };
+      errors.push(error instanceof Error ? error.message : 'Unknown error');
     }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    };
   }
 
   async testInsert(data: any): Promise<{ success: boolean; error?: string }> {

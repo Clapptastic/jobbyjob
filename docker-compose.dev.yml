@@ -1,23 +1,29 @@
+version: "3.8"
+
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile.dev
     ports:
+      - "3000:3000"
       - "5173:5173"
     volumes:
       - .:/app
       - /app/node_modules
     environment:
       - NODE_ENV=development
-      - VITE_DOCKER=true
-      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
-      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
-      - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY}
       - VITE_DEV_MODE=true
-    command: npm run dev
+      - VITE_DOCKER=true
+      - HOST=0.0.0.0
     networks:
-      - dev-network
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   test:
     build:
@@ -26,20 +32,18 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-      - ./playwright-report:/app/playwright-report
-      - ./test-results:/app/test-results
+      - playwright-report:/app/playwright-report
+      - test-results:/app/test-results
     environment:
       - NODE_ENV=test
-      - VITE_DOCKER=true
-      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
-      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
-      - VITE_OPENAI_API_KEY=${VITE_OPENAI_API_KEY}
-      - TEST_USER_EMAIL=${TEST_USER_EMAIL}
-      - TEST_USER_PASSWORD=${TEST_USER_PASSWORD}
-    command: npm run test:ci
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
     networks:
-      - dev-network
+      - app-network
+
+volumes:
+  playwright-report:
+  test-results:
 
 networks:
-  dev-network:
-    driver: bridge
+  app-network:
+    driver: bridge 

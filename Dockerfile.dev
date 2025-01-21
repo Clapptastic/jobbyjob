@@ -2,27 +2,26 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install development dependencies
-RUN apk add --no-cache git python3 make g++
+# Install system dependencies
+RUN apk add --no-cache git python3 make g++ curl
 
-# Install global npm packages
-RUN npm install -g concurrently ts-node-dev
-
-# Copy package files and scripts needed for install
+# Copy package files
 COPY package*.json ./
-COPY scripts ./scripts/
 
-# Install dependencies
-RUN npm install
+# Install dependencies with platform-specific binaries
+RUN npm install --platform=linux --arch=x64 && \
+    npm rebuild rollup --platform=linux --arch=x64 && \
+    npm cache clean --force
 
-# Install PWA plugin and workbox packages as regular dependencies
-RUN npm install ts-node vite-plugin-pwa@0.21.1 workbox-window@7.3.0 workbox-core@7.3.0 workbox-routing@7.3.0 workbox-strategies@7.3.0 workbox-precaching@7.3.0 workbox-cacheable-response@7.3.0 workbox-expiration@7.3.0
-
-# Copy remaining source code
+# Copy source files
 COPY . .
 
-# Expose Vite development port
-EXPOSE 5173
+# Expose ports
+EXPOSE 5173 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/ || exit 1
 
 # Start development server
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "dev"] 

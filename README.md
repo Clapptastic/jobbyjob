@@ -60,15 +60,62 @@ An AI-powered job search assistant that helps you find and apply to jobs efficie
 
 ## Docker Support 🐳
 
-1. **Development**
-   ```bash
-   docker-compose -f docker-compose.dev.yml up
-   ```
+The application is containerized using Docker and can be run in different environments:
 
-2. **Production**
-   ```bash
-   docker-compose -f docker-compose.prod.yml up
-   ```
+### Development Environment
+
+```bash
+# Start development environment
+docker-compose -f docker-compose.dev.yml up
+
+# Rebuild and start
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+Services:
+- UI (Vite): http://localhost:5173
+- API Server: http://localhost:3000
+- OpenResume Parser: http://localhost:3001
+
+### Production Environment
+
+```bash
+# Start production environment
+docker-compose -f docker-compose.prod.yml up
+
+# Rebuild and start
+docker-compose -f docker-compose.prod.yml up --build
+```
+
+### Test Environment
+
+```bash
+# Run tests in Docker
+docker-compose -f docker-compose.test.yml up
+```
+
+### Environment Variables in Docker
+
+```bash
+# .env.docker
+VITE_DOCKER=true
+VITE_SUPABASE_URL=your-project-url.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_OPEN_RESUME_URL=http://localhost:3001
+```
+
+### Health Checks
+
+The Docker configuration includes health checks for all services to ensure they are running correctly:
+
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:5173"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+```
 
 ## PWA Features 📱
 
@@ -103,8 +150,17 @@ registerRoute(
 ## Database Connection 🗄️
 
 ```typescript
-// Initialize Supabase client
-const supabase = createClient(url, key, {
+// Initialize Supabase client with validation
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Validate credentials
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase credentials');
+}
+
+// Create client with enhanced configuration
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
@@ -112,35 +168,119 @@ const supabase = createClient(url, key, {
   },
   db: {
     schema: 'public'
+  },
+  global: {
+    headers: {
+      'x-client-info': 'jobbyjob@1.0.0'
+    }
   }
 });
 
-// Health check
+// Comprehensive health check
 const checkHealth = async () => {
   try {
-    const { error } = await supabase
+    // Check database connection
+    const { error: dbError } = await supabase
       .from('profiles')
-      .select('count')
-      .limit(1)
-      .single();
-    return !error;
+      .select('id')
+      .limit(1);
+    
+    if (dbError) return false;
+
+    // Check auth service
+    const { error: authError } = await supabase.auth.getSession();
+    if (authError) return false;
+
+    return true;
   } catch (err) {
     return false;
   }
 };
+
+// Connection retry with exponential backoff
+const checkConnection = async (retries = 3): Promise<boolean> => {
+  for (let i = 0; i < retries; i++) {
+    if (await checkHealth()) return true;
+    await new Promise(resolve => 
+      setTimeout(resolve, Math.pow(2, i) * 1000)
+    );
+  }
+  return false;
+};
+```
+
+### Environment Variables
+
+```bash
+VITE_SUPABASE_URL=your-project-url.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_DOCKER=true  # When running in Docker
 ```
 
 ## Testing 🧪
 
 ```bash
-# Unit tests
+# Run all tests
 npm run test
 
-# E2E tests
-npm run test:e2e
+# Run specific test suites
+npm run test:unit        # Unit tests
+npm run test:integration # Integration tests
+npm run test:e2e        # End-to-end tests
+npm run test:components # Component tests
 
-# Component tests
-npm run test:components
+# Run tests with UI
+npm run test:e2e:ui
+
+# Generate coverage report
+npm run test:coverage
+```
+
+### Test Environment Setup
+
+```typescript
+// Component test setup
+import { renderWithProviders } from './utils/test-utils';
+import { test, expect, vi } from 'vitest';
+
+// Mock Supabase client
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: () => ({
+    auth: {
+      signIn: vi.fn(),
+      signUp: vi.fn(),
+      getSession: vi.fn()
+    },
+    storage: {
+      from: vi.fn()
+    }
+  })
+}));
+
+// E2E test setup
+import { test as base } from '@playwright/test';
+
+export const test = base.extend({
+  authenticated: async ({ page }, use) => {
+    // Setup auth state
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.setItem('sb-access-token', 'test-token');
+    });
+    await use(true);
+    // Cleanup
+    await page.evaluate(() => {
+      localStorage.clear();
+    });
+  }
+});
+```
+
+### Docker Test Environment
+
+```bash
+# Run tests in Docker
+docker-compose -f docker-compose.test.yml up
 ```
 
 ## Contributing 🤝
