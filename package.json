@@ -64,7 +64,7 @@
     "@typescript-eslint/parser": "^6.19.1",
     "@vitejs/plugin-react": "^4.2.1",
     "@vitest/coverage-v8": "^1.2.1",
-    "@vitest/ui": "^1.2.1",
+    "@vitest/ui": "^3.0.4",
     "autoprefixer": "^10.4.17",
     "concurrently": "^8.2.2",
     "esbuild": "0.20.2",
